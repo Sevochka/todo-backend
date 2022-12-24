@@ -1,0 +1,13 @@
+{
+  "parser":"@typescript-eslint/parser",
+  "extends": ["airbnb-base", "airbnb-typescript/base"],
+  "rules": {
+    "func-names": ["error", "never"],
+    "consistent-return":"off"
+  },
+  "ignorePatterns": ["build/"],
+  "plugins": ["babel", "@typescript-eslint"],
+  "parserOptions": {
+    "project": "./tsconfig.json"
+   }
+}

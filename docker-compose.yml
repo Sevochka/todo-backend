@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile_local
+    ports:
+      - 3000:3000
+    depends_on:
+      - mysql_server
+    volumes:
+      - ./src:/app/src
+
+  mysql_server:
+    image: mysql:8.0
+    environment:
+      - MYSQL_DATABASE=$MYSQL_DB
+      - MYSQL_PASSWORD=$MYSQL_PASSWORD
+      - MYSQL_ROOT_PASSWORD=$MYSQL_PASSWORD
+    ports:
+      - 3306:3306
+
+  migration:
+    build: 
+      context: .
+      dockerfile: ./migrations/Dockerfile_migration
+    command: >
+      sh -c "sleep 8 &&
+             make -C /app/migrations DSN_URL='mysql://$MYSQL_USER:$MYSQL_PASSWORD@tcp($MYSQL_HOST:3306)/$MYSQL_DB'"
+    depends_on:
+      - mysql_server
+
+
+

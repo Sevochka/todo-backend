@@ -1,0 +1,32 @@
+FROM node:lts-alpine
+
+ARG GIT_SSH_KEY
+
+RUN set -ex; apk --no-cache add -f openssh-client git && \
+      rm -rf /var/cache/apk/*
+RUN set -ex; mkdir -p /home/node/app/node_modules && \
+      chown -R node:node /home/node/app
+
+WORKDIR /home/node/app
+
+ENV NODE_ENV=production
+ENV NPM_CONFIG_PRODUCTION=false
+
+USER node
+RUN set -ex; mkdir -p ~/.ssh && \
+      echo "$GIT_SSH_KEY" > ~/.ssh/id_rsa && \
+      chmod 600 ~/.ssh/id_rsa && \
+      ssh-keyscan git.sports.ru >> ~/.ssh/known_hosts
+COPY --chown=node:node . .
+RUN set -ex; npm ci --production
+
+RUN npm run build
+
+USER root
+RUN set -ex; apk --no-cache del openssh-client git && \
+      rm -rf /var/cache/apk/* && rm -f ~/.ssh/id_rsa
+
+USER node
+
+CMD node dist/index.js
+

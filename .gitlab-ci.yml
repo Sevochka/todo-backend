@@ -1,0 +1,60 @@
+stages:
+    - migrations
+    - create images
+    - run containers
+
+.template:
+  image:
+    name: node:lts
+  services:
+    - name: docker:19.03.14-dind
+      command: ['--mtu=1400']
+  tags:
+    - k8s_executor_sports
+
+.job_create_images:
+  stage: create images
+  extends: .template
+  image: docker:stable
+  before_script:
+    - export DOCKER_BUILDKIT=1
+    - echo $CI_BUILD_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
+  only:
+    - main
+
+.job_run_containers:
+  stage: run containers
+  extends: .template
+  image: curlimages/curl
+  only:
+    - main
+apply_migrations:
+  stage: migrations
+  image: migrate/migrate:v4.14.1
+  script:
+    - apk add --no-cache tzdata
+    - apk add --update --no-cache make
+    - make --directory=migrations migration DSN_URL="mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:3306)/${MYSQL_DB}"
+  when: manual
+  except:
+    - main
+
+image_server:
+  stage: create images
+  extends: .job_create_images
+  script:
+    - docker build --build-arg GIT_SSH_KEY="${GIT_SSH_KEY}" -f Dockerfile_server -t $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHA .
+    - docker tag $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE/server:latest
+    - docker push $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE/server:latest
+
+run_k8s_container_sports:
+  extends: .job_run_containers
+  script:
+    - echo "trigger pipeline https://git.sports.ru/k8s/special"
+    - 'curl -sSf -X POST
+        -F token=${CI_JOB_TOKEN}
+        -F variables[DEPLOY_PREFIX]=prod
+        -F variables[CHARTS]=mir-bingo
+        -F variables[HELM_VALUES]=image.tag=$CI_COMMIT_SHA
+        -F ref=master https://git.sports.ru/api/v4/projects/997/trigger/pipeline'

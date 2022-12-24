@@ -1,0 +1,10 @@
+FROM homebrew/brew:latest
+
+WORKDIR /app
+
+COPY . /app
+
+RUN brew install golang-migrate
+
+# will be overwritten by docker-compose.yml
+CMD make -C /app/migrations DSN_URL='mysql://user:password@tcp(mysql_server:3306)/todo-backend'
